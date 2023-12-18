@@ -6,7 +6,7 @@
 #    By: thepaqui <thepaqui@student.42nice.fr>      +#+  +:+       +#+         #
 #                                                 +#+#+#+#+#+   +#+            #
 #    Created: 2023/12/17 00:49:35 by thepaqui          #+#    #+#              #
-#    Updated: 2023/12/17 14:56:51 by thepaqui         ###   ########.fr        #
+#    Updated: 2023/12/18 15:14:50 by thepaqui         ###   ########.fr        #
 #                                                                              #
 # **************************************************************************** #
 
@@ -25,6 +25,7 @@ SRCS=	src/main.cpp \
 		src/glad.cpp \
 		src/window.cpp \
 		src/input.cpp \
+		src/bmp.cpp \
 		src/ShaderProgram.cpp \
 		src/VAO.cpp \
 		src/render.cpp
