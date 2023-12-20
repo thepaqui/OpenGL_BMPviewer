@@ -5,3 +5,4 @@
 *.swo
 bmp_view
 .vscode/
+forbidden.*
