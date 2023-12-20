@@ -6,7 +6,7 @@
 /*   By: thepaqui <thepaqui@student.42nice.fr>      +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2023/12/18 15:08:15 by thepaqui          #+#    #+#             */
-/*   Updated: 2023/12/19 18:48:57 by thepaqui         ###   ########.fr       */
+/*   Updated: 2023/12/20 18:42:23 by thepaqui         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -76,13 +76,31 @@ static void	printInfoHeader(t_InfoHeader &ih)
 		<< std::dec << std::endl;
 }
 
-static void	checkInfoHeader(const std::filesystem::path &filePath, t_InfoHeader &ih)
+static void	printColorHeader(t_ColorHeader &ch)
 {
-	if (ih.bpp != 24 && ih.bpp != 32)
-	{
-		std::cout << filePath << ": COLOR ENCODING UNSUPPORTED\nONLY BGR24 AND BGRA32 ARE SUPPORTED" << std::endl;
-		throw std::runtime_error(filePath.string() + ": Color encoding unsupported");
-	}
+	char	*colorSpaceSTR = reinterpret_cast<char*>(&ch.colorSpaceType);
+	std::cout << std::hex
+		<< "redMask =		0x"		<< ch.redMask			<< "\n"
+		<< "greenMask =		0x"		<< ch.greenMask			<< "\n"
+		<< "blueMask =		0x"		<< ch.blueMask			<< "\n"
+		<< "alphaMask =		0x"		<< ch.alphaMask			<< "\n"
+		<< "colorSpaceType =	0x"	<< ch.colorSpaceType
+		<< " " << colorSpaceSTR[0] << colorSpaceSTR[1]
+		<< colorSpaceSTR[2] << colorSpaceSTR[3] << "\n"
+		<< std::dec << std::endl;
+}
+
+inline static bool issRGB(t_ColorHeader &ch)
+{
+	return (ch.colorSpaceType == 0x73524742);
+}
+
+inline static bool isRealsRGBBitMask(t_ColorHeader &ch)
+{
+	return (ch.redMask == 0x00ff0000
+		&& ch.greenMask == 0x0000ff00
+		&& ch.blueMask == 0x000000ff
+		&& ch.alphaMask == 0xff000000);
 }
 
 // replace return type by BYTE* later!
@@ -101,6 +119,11 @@ unsigned char	*parseBMPFile(const std::filesystem::path &filePath, int *width, i
 
 	t_FileHeader	fileHeader;
 	readNBytes(bmp, reinterpret_cast<char*>(&fileHeader), sizeof(fileHeader));
+	if (bmp.eof())
+	{
+		std::cout << filePath << " IS NOT A BMP FILE" << std::endl;
+		throw std::runtime_error(filePath.string() + " is not a bmp file");
+	}
 	printFileHeader(fileHeader); // debug
 	if (fileHeader.fileType != 0x4D42)
 	{
@@ -110,12 +133,49 @@ unsigned char	*parseBMPFile(const std::filesystem::path &filePath, int *width, i
 
 	t_InfoHeader	infoHeader;
 	readNBytes(bmp, reinterpret_cast<char*>(&infoHeader), sizeof(infoHeader));
+	if (bmp.eof())
+	{
+		std::cout << filePath << " IS NOT A BMP FILE" << std::endl;
+		throw std::runtime_error(filePath.string() + " is not a bmp file");
+	}
 	printInfoHeader(infoHeader); // debug
-	checkInfoHeader(filePath, infoHeader);
+	if (infoHeader.bpp != 24 && infoHeader.bpp != 32)
+	{
+		std::cout << filePath << ": PIXEL ENCODING UNSUPPORTED\nONLY RGB24 AND RGBA32 ARE SUPPORTED" << std::endl;
+		throw std::runtime_error(filePath.string() + ": Pixel encoding unsupported");
+	}
 
-	// parse Info Header
-	// parse Color Header
-	// parse pixel data into BYTE* and return it
+	t_ColorHeader	colorHeader;
+	if (infoHeader.bpp == 32)
+	{
+		if (infoHeader.size < (sizeof(BMPInfoHeader) + sizeof(BMPColorHeader)))
+		{
+			std::cout << filePath << ": BAD COLOR HEADER (INEXISTANT OR WRONG FORMAT)" << std::endl;
+			throw std::runtime_error(filePath.string() + " has no/wrong color header");
+		}
+		bmp.read((char*)&colorHeader, sizeof(colorHeader));
+		if (bmp.eof())
+		{
+			std::cout << filePath << " IS NOT A BMP FILE" << std::endl;
+			throw std::runtime_error(filePath.string() + " is not a bmp file");
+		}
+		printColorHeader(colorHeader); // debug
+		if (!issRGB(colorHeader))
+		{
+			std::cout << filePath << ": COLOR ENCODING UNSUPPORTED\nONLY sRGB IS SUPPORTED FOR RGB32 ENCODING" << std::endl;
+			throw std::runtime_error(filePath.string() + ": Color encoding unsupported");
+		}
+		if (!isRealsRGBBitMask(colorHeader))
+		{
+			std::cout << filePath << ": WRONG COLOR MASKS FOR sRGB ENCODING" << std::endl;
+			throw std::runtime_error(filePath.string() + ": Wrong color masks for sRGB");
+		}
+	}
+
+	// Go to start of actual data
+	bmp.seekg(fileHeader.dataOffset, bmp.beg);
+
+//	BYTE	*data = (BYTE*)calloc(infoHeader.rawDataSize, sizeof(BYTE));
 
 	return NULL;
 }

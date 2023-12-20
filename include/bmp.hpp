@@ -6,7 +6,7 @@
 /*   By: thepaqui <thepaqui@student.42nice.fr>      +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2023/12/18 15:02:30 by thepaqui          #+#    #+#             */
-/*   Updated: 2023/12/19 19:16:19 by thepaqui         ###   ########.fr       */
+/*   Updated: 2023/12/20 18:21:52 by thepaqui         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -44,30 +44,29 @@ typedef struct	BMPFileHeader
 // Supported by at least Windows NT, 3.1x
 typedef struct	BMPInfoHeader
 {
-	DWORD	size{0};			// Size of this header (in bytes) (includes color header and bit mask info size if present)
-	SDWORD	width{0};			// width of BMP image data in pixels
-	SDWORD	height{0};			// height of BMP image data in pixels (if positive, data starts with bottom line of the image)
+	DWORD	size{0};			// Size of this header (in bytes) (includes color header size if present)
+	SDWORD	width{0};			// Width of BMP image data in pixels
+	SDWORD	height{0};			// Height of BMP image data in pixels (if positive, data starts with bottom line of the image)
 	WORD	planes{1};			// Always 1
 	WORD	bpp{0};				// Bits per pixel
-	DWORD	compression{0};		// 0 (uncompresed BGR) or 3 (uncompressed BGRA). Anything else is compressed or unsupported.
+	DWORD	compression{0};		// 0 (uncompresed RGB) or 3 (uncompressed RGBA). Anything else is compressed or unsupported.
 	DWORD	rawDataSize{0};		// Size of image's raw data in bytes (can be 0 if uncompressed)
 	SDWORD	xPixelsPerMeter{0};
 	SDWORD	yPixelsPerMeter{0};
-	DWORD	colorsUsed{0};		// No. color indexes in the color table. Use 0 for the max number of colors allowed by bit_count
-	DWORD	colorsImportant{0};	// No. of colors used for displaying the bitmap. If 0 all colors are required
+	DWORD	colorsUsed{0};		// Nb of color indexes in the color table. 0 means the max number of colors allowed by bpp
+	DWORD	colorsImportant{0};	// Nb of colors used for displaying the bitmap. If 0 all colors are required
 }				t_InfoHeader;
 
-// Size = 84 bytes
-// This header is only present for transparent images (BGRA32bit)
-// BGR24 does not use this or bit ma
+// Size = 20 bytes
+// This header is only present for transparent images (RGBA32bit)
+// RGB24 does not use this header
 typedef struct	BMPColorHeader
 {
 	DWORD	redMask{0x00ff0000};		// Bit mask for the red channel
 	DWORD	greenMask{0x0000ff00};		// Bit mask for the green channel
 	DWORD	blueMask{0x000000ff};		// Bit mask for the blue channel
 	DWORD	alphaMask{0xff000000};		// Bit mask for the alpha channel
-	DWORD	colorSpaceType{0x73524742};	// Default "sBGR" (0x73524742)
-	DWORD	unused[16]{0};				// Unused data for sBGR color space
+	DWORD	colorSpaceType{0x73524742};	// Default "sRGB" (0x73524742)
 }				t_ColorHeader;
 
 #pragma pack(pop)
