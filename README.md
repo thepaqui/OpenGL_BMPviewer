@@ -18,3 +18,4 @@ $> ./bmp_view path_to_bmp_file
 
 This will open a window and display the file in the window, unless any error happens.  
 This was developed and ONLY tested on Ubuntu 20.04 LTS, so I offer no promise of portability to other platforms.  
+This program only supports bmp files that use the sRGB color space, with BGR24 or BGRA32 encoding.  
