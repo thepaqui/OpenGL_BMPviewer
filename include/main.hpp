@@ -6,7 +6,7 @@
 /*   By: thepaqui <thepaqui@student.42nice.fr>      +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2023/12/11 02:58:59 by thepaqui          #+#    #+#             */
-/*   Updated: 2023/12/18 18:20:43 by thepaqui         ###   ########.fr       */
+/*   Updated: 2023/12/21 01:42:24 by thepaqui         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -30,11 +30,7 @@ void	processWindowResize(GLFWwindow *window, int width, int height);
 /* User Input */
 void	processInputs(GLFWwindow *window);
 
-/* Textures */
-unsigned char	*parseBMPFile(const std::filesystem::path &filePath, int *width, int *height, int *nbChannels);
-//GLuint	parseTexture(std::filesystem::path &filePath, int *width, int *height, int *nbChannels);
-
 /* Render */
-void	renderLoop(GLFWwindow *window);
+void	renderLoop(GLFWwindow *window, const std::filesystem::path &filePath);
 
 #endif

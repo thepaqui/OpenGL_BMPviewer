@@ -6,7 +6,7 @@
 /*   By: thepaqui <thepaqui@student.42nice.fr>      +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2023/12/11 01:14:54 by thepaqui          #+#    #+#             */
-/*   Updated: 2023/12/18 18:11:59 by thepaqui         ###   ########.fr       */
+/*   Updated: 2023/12/21 01:41:48 by thepaqui         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -45,7 +45,7 @@ int	main(int ac, char **av)
 
 	std::filesystem::path	bmp_path(av[1]);
 	{
-		auto ext = bmp_path.extension().string();
+		std::string	ext = bmp_path.extension().string();
 		if (!stringCompareCI(ext, ".bmp") && !stringCompareCI(ext, ".bitmap"))
 		{
 			std::cout << "Argument should be a path to a .bmp file" << std::endl;
@@ -85,25 +85,10 @@ int	main(int ac, char **av)
 	// Telling GLFW which function to call every time our main window is resized
 	glfwSetFramebufferSizeCallback(window, processWindowResize);
 
-	unsigned char	*texture = NULL;
-	int				width=0, height=0, nbChannels=0;
-	try
-	{
-		texture = parseBMPFile(bmp_path, &width, &height, &nbChannels);
-	}
-	catch(...)
-	{
-		return mainError("Texture parsing threw an exception", 4);
-	}
-	(void)texture;
-	(void)width;
-	(void)height;
-	(void)nbChannels;
-
 	// Render loop
 	try
 	{
-		renderLoop(window);
+		renderLoop(window, bmp_path);
 	}
 	catch (...)
 	{
