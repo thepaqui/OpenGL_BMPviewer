@@ -6,7 +6,7 @@
 /*   By: thepaqui <thepaqui@student.42nice.fr>      +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2023/12/21 00:17:15 by thepaqui          #+#    #+#             */
-/*   Updated: 2023/12/21 14:15:04 by thepaqui         ###   ########.fr       */
+/*   Updated: 2023/12/21 17:03:27 by thepaqui         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -25,13 +25,11 @@ Texture::Texture(const std::filesystem::path &filePath)
 	glTexParameterfv(GL_TEXTURE_2D, GL_TEXTURE_BORDER_COLOR, borderColor);
 
 	// Filtering
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
 
-	GLint	internalFormat = GL_RGBA8;
-	GLenum	format = GL_BGRA;
-	glTexImage2D(GL_TEXTURE_2D, 0, internalFormat, _width, _height,
-					0, format, GL_UNSIGNED_BYTE, _data);
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, _width, _height,
+					0, GL_BGRA, GL_UNSIGNED_BYTE, _data);
 
 	glGenerateMipmap(GL_TEXTURE_2D);
 
@@ -74,6 +72,119 @@ unsigned int	Texture::getBPP() const
 
 /* PRIVATE METHODS */
 
+void	Texture::parseBMPFileHeader(const std::filesystem::path &fp,
+			std::ifstream &bmp, t_FileHeader &fh)
+{
+	readNBytes(bmp, reinterpret_cast<char*>(&fh), sizeof(fh));
+	if (bmp.eof())
+	{
+		std::cout << fp << " IS NOT A BMP FILE" << std::endl;
+		throw std::runtime_error(fp.string() + " is not a bmp file");
+	}
+	if (_debug)
+		printFileHeader(fh); // debug
+	if (fh.fileType != 0x4D42)
+	{
+		std::cout << fp << " IS NOT A BMP FILE" << std::endl;
+		throw std::runtime_error(fp.string() + " is not a bmp file");
+	}
+}
+
+void	Texture::parseBMPInfoHeader(const std::filesystem::path &fp,
+			std::ifstream &bmp, t_InfoHeader &ih)
+{
+	readNBytes(bmp, reinterpret_cast<char*>(&ih), sizeof(ih));
+	if (bmp.eof())
+	{
+		std::cout << fp << " IS NOT A BMP FILE" << std::endl;
+		throw std::runtime_error(fp.string() + " is not a bmp file");
+	}
+	if (_debug)
+		printInfoHeader(ih); // debug
+	if (ih.bpp != 24 && ih.bpp != 32)
+	{
+		std::cout << fp << ": PIXEL ENCODING UNSUPPORTED\nONLY RGB24 AND RGBA32 ARE SUPPORTED" << std::endl;
+		throw std::runtime_error(fp.string() + ": Pixel encoding unsupported");
+	}
+	if (ih.height < 0)
+		ih.height = -1 * ih.height;
+	else
+		_yFlipped = true;
+}
+
+void	Texture::parseBMPColorHeader(const std::filesystem::path &fp,
+			std::ifstream &bmp, t_ColorHeader &ch, const t_InfoHeader &ih)
+{
+	if (ih.bpp == 32)
+	{
+		if (ih.size < (sizeof(BMPInfoHeader) + sizeof(BMPColorHeader)))
+		{
+			std::cout << fp << ": BAD COLOR HEADER (INEXISTANT OR WRONG FORMAT)" << std::endl;
+			throw std::runtime_error(fp.string() + " has no/wrong color header");
+		}
+		bmp.read((char*)&ch, sizeof(ch));
+		if (bmp.eof())
+		{
+			std::cout << fp << " IS NOT A BMP FILE" << std::endl;
+			throw std::runtime_error(fp.string() + " is not a bmp file");
+		}
+		if (_debug)
+			printColorHeader(ch);
+		if (!issRGB(ch))
+		{
+			std::cout << fp << ": COLOR ENCODING UNSUPPORTED\nONLY sRGB IS SUPPORTED FOR RGB32 ENCODING" << std::endl;
+			throw std::runtime_error(fp.string() + ": Color encoding unsupported");
+		}
+		if (!isRealsRGBBitMask(ch))
+		{
+			std::cout << fp << ": WRONG COLOR MASKS FOR sRGB ENCODING" << std::endl;
+			throw std::runtime_error(fp.string() + ": Wrong color masks for sRGB");
+		}
+	}
+}
+
+void	Texture::parseBMPData(const std::filesystem::path &fp, std::ifstream &bmp,
+			const t_FileHeader &fh, const t_InfoHeader &ih)
+{
+	bmp.seekg(fh.dataOffset, bmp.beg);
+	size_t	nbInfoBytes = ih.width * (ih.bpp / 8);
+	size_t	dataBytes = ih.width * 4 * ih.height;
+	size_t	nbPaddingBytes = (4 - (nbInfoBytes % 4)) % 4;
+	_data = (unsigned char*)calloc(dataBytes, sizeof(unsigned char));
+	if (!_data)
+	{
+		std::cout << "MEMORY ALLOCATION FAILED" << std::endl;
+		throw std::bad_alloc();
+	}
+	if (ih.bpp == 32)
+		bmp.read((char*)_data, dataBytes);
+	else
+	{
+		char	throwaway[nbPaddingBytes];
+		char	*pos = NULL;
+		for (int y = 0; y < ih.height; y++)
+		{
+			for (int x = 0; x < ih.width; x++)
+			{
+				pos = (char*)(_data + (y * ih.width * 4) + (x * 4));
+				bmp.read(pos, 3);
+				pos[3] = '\xff';
+			}
+			if (nbPaddingBytes)
+				bmp.read(throwaway, nbPaddingBytes);
+		}
+		if (bmp.eof())
+		{
+			free(_data);
+			_data = NULL;
+			std::cout << fp << " HAS BAD DATA PADDING" << std::endl;
+			throw std::runtime_error(fp.string() + " has bad data padding");
+		}
+	}
+	if (_debug)
+		printData(ih, nbPaddingBytes, dataBytes);
+}
+
 void	Texture::parseBMPFile(const std::filesystem::path &filePath)
 {
 	if (!doesFileExist(filePath.string()))
@@ -83,117 +194,23 @@ void	Texture::parseBMPFile(const std::filesystem::path &filePath)
 	}
 	std::ifstream	bmp = openIFileBin(filePath);
 
+//	_debug = true; // debug
 	t_FileHeader	fileHeader;
-	readNBytes(bmp, reinterpret_cast<char*>(&fileHeader), sizeof(fileHeader));
-	if (bmp.eof())
-	{
-		std::cout << filePath << " IS NOT A BMP FILE" << std::endl;
-		throw std::runtime_error(filePath.string() + " is not a bmp file");
-	}
-//	printFileHeader(fileHeader); // debug
-	if (fileHeader.fileType != 0x4D42)
-	{
-		std::cout << filePath << " IS NOT A BMP FILE" << std::endl;
-		throw std::runtime_error(filePath.string() + " is not a bmp file");
-	}
+	parseBMPFileHeader(filePath, bmp, fileHeader);
 
 	t_InfoHeader	infoHeader;
-	readNBytes(bmp, reinterpret_cast<char*>(&infoHeader), sizeof(infoHeader));
-	if (bmp.eof())
-	{
-		std::cout << filePath << " IS NOT A BMP FILE" << std::endl;
-		throw std::runtime_error(filePath.string() + " is not a bmp file");
-	}
-//	printInfoHeader(infoHeader); // debug
-	if (infoHeader.bpp != 24 && infoHeader.bpp != 32)
-	{
-		std::cout << filePath << ": PIXEL ENCODING UNSUPPORTED\nONLY RGB24 AND RGBA32 ARE SUPPORTED" << std::endl;
-		throw std::runtime_error(filePath.string() + ": Pixel encoding unsupported");
-	}
-	if (infoHeader.height < 0)
-	{
-		infoHeader.height = -1 * infoHeader.height; // DO MORE HERE, THIS MEANS IMAGE IS BOTTOM FIRST
-	}
+	parseBMPInfoHeader(filePath, bmp, infoHeader);
 
 	t_ColorHeader	colorHeader;
-	if (infoHeader.bpp == 32)
-	{
-		if (infoHeader.size < (sizeof(BMPInfoHeader) + sizeof(BMPColorHeader)))
-		{
-			std::cout << filePath << ": BAD COLOR HEADER (INEXISTANT OR WRONG FORMAT)" << std::endl;
-			throw std::runtime_error(filePath.string() + " has no/wrong color header");
-		}
-		bmp.read((char*)&colorHeader, sizeof(colorHeader));
-		if (bmp.eof())
-		{
-			std::cout << filePath << " IS NOT A BMP FILE" << std::endl;
-			throw std::runtime_error(filePath.string() + " is not a bmp file");
-		}
-//		printColorHeader(colorHeader); // debug
-		if (!issRGB(colorHeader))
-		{
-			std::cout << filePath << ": COLOR ENCODING UNSUPPORTED\nONLY sRGB IS SUPPORTED FOR RGB32 ENCODING" << std::endl;
-			throw std::runtime_error(filePath.string() + ": Color encoding unsupported");
-		}
-		if (!isRealsRGBBitMask(colorHeader))
-		{
-			std::cout << filePath << ": WRONG COLOR MASKS FOR sRGB ENCODING" << std::endl;
-			throw std::runtime_error(filePath.string() + ": Wrong color masks for sRGB");
-		}
-	}
+	parseBMPColorHeader(filePath, bmp, colorHeader, infoHeader);
 
-	// Go to start of actual data
-	bmp.seekg(fileHeader.dataOffset, bmp.beg);
-	size_t	nbInfoBytes = infoHeader.width * (infoHeader.bpp / 8);
-	size_t	dataBytes = infoHeader.width * 4 * infoHeader.height;
-	size_t	nbPaddingBytes = (4 - (nbInfoBytes % 4)) % 4;
-	_data = (unsigned char*)calloc(dataBytes, sizeof(unsigned char));
-	if (!_data)
+	parseBMPData(filePath, bmp, fileHeader, infoHeader);
+//	_debug = false; // debug
+
+	if (_yFlipped)
 	{
-		std::cout << "MEMORY ALLOCATION FAILED" << std::endl;
-		throw std::bad_alloc();
+		// Flip data upside down here!
 	}
-	if (infoHeader.bpp == 32)
-		bmp.read((char*)_data, dataBytes);
-	else
-	{
-		if (nbPaddingBytes == 0)
-		{
-			char	*pos = NULL;
-			for (int y = 0; y < infoHeader.height; y++)
-			{
-				for (int x = 0; x < infoHeader.width; x++)
-				{
-					pos = (char*)(_data + (y * infoHeader.width * 4) + (x * 4));
-					bmp.read(pos, 3);
-					pos[3] = '\xff';
-				}
-			}
-		}
-		else
-		{
-			char	throwaway[nbPaddingBytes];
-			char	*pos = NULL;
-			for (int y = 0; y < infoHeader.height; y++)
-			{
-				for (int x = 0; x < infoHeader.width; x++)
-				{
-					pos = (char*)(_data + (y * infoHeader.width * 4) + (x * 4));
-					bmp.read(pos, 3);
-					pos[3] = '\xff';
-				}
-				bmp.read(throwaway, nbPaddingBytes);
-			}
-			if (bmp.eof())
-			{
-				free(_data);
-				_data = NULL;
-				std::cout << filePath << " HAS BAD DATA PADDING" << std::endl;
-				throw std::runtime_error(filePath.string() + " has bad data padding");
-			}
-		}
-	}
-//	printData(infoHeader, nbInfoBytes, nbPaddingBytes, dataBytes); // debug
 
 	_width = infoHeader.width;
 	_height = infoHeader.height;
@@ -291,10 +308,10 @@ void	Texture::printColorHeader(const t_ColorHeader &ch) const
 		<< std::dec << std::endl;
 }
 
-void	Texture::printData(const t_InfoHeader &ih, const size_t infByt,
-	const size_t padByt, const size_t datByt) const
+void	Texture::printData(const t_InfoHeader &ih, const size_t padByt,
+			const size_t datByt) const
 {
-	std::cout << ih.height << " lines of " << infByt << " bytes = "
+	std::cout << ih.height << " lines of " << ih.width * 4 << " bytes = "
 		<< datByt << " bytes" << std::endl;
 	std::cout << padByt << " bytes of padding" << std::endl;
 	size_t	i = 0;
@@ -302,9 +319,9 @@ void	Texture::printData(const t_InfoHeader &ih, const size_t infByt,
 	for (int y = 0; y < ih.height; y++)
 	{
 		std::cout << "\t";
-		for (int x = 0; x < (ih.bpp / 8) * ih.width; x++)
+		for (int x = 0; x < 4 * ih.width; x++)
 		{
-			i = (y * ih.width * ih.bpp / 8) + x;
+			i = (y * 4 * ih.width) + x;
 			std::cout << std::setfill('0') << std::setw(2) << +_data[i] << " ";
 		}
 		std::cout << "\n";

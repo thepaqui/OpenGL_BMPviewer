@@ -6,7 +6,7 @@
 /*   By: thepaqui <thepaqui@student.42nice.fr>      +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2023/12/21 00:09:19 by thepaqui          #+#    #+#             */
-/*   Updated: 2023/12/21 01:43:29 by thepaqui         ###   ########.fr       */
+/*   Updated: 2023/12/21 17:02:38 by thepaqui         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -76,9 +76,19 @@ private	:
 	unsigned int	_width = 0;
 	unsigned int	_height = 0;
 	unsigned int	_bpp = 0;
+	bool			_yFlipped = false;
+	bool			_debug = false;
 
 	// Parsing functions
 
+	void	parseBMPFileHeader(const std::filesystem::path &fp,
+		std::ifstream &bmp, t_FileHeader &fh);
+	void	parseBMPInfoHeader(const std::filesystem::path &fp,
+		std::ifstream &bmp, t_InfoHeader &ih);
+	void	parseBMPColorHeader(const std::filesystem::path &fp,
+		std::ifstream &bmp, t_ColorHeader &ch, const t_InfoHeader &ih);
+	void	parseBMPData(const std::filesystem::path &fp, std::ifstream &bmp,
+		const t_FileHeader &fh, const t_InfoHeader &ih);
 	void	parseBMPFile(const std::filesystem::path &filePath);
 
 	// Utility functions
@@ -95,8 +105,8 @@ private	:
 	void	printFileHeader(const t_FileHeader &fh) const;
 	void	printInfoHeader(const t_InfoHeader &ih) const;
 	void	printColorHeader(const t_ColorHeader &ch) const;
-	void	printData(const t_InfoHeader &ih, const size_t infByt,
-		const size_t padByt, const size_t datByt) const;
+	void	printData(const t_InfoHeader &ih, const size_t padByt,
+		const size_t datByt) const;
 
 public	:
 	Texture(const std::filesystem::path &filePath);
