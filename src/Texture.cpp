@@ -6,7 +6,7 @@
 /*   By: thepaqui <thepaqui@student.42nice.fr>      +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2023/12/21 00:17:15 by thepaqui          #+#    #+#             */
-/*   Updated: 2023/12/21 17:03:27 by thepaqui         ###   ########.fr       */
+/*   Updated: 2023/12/22 01:09:49 by thepaqui         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -107,9 +107,10 @@ void	Texture::parseBMPInfoHeader(const std::filesystem::path &fp,
 		throw std::runtime_error(fp.string() + ": Pixel encoding unsupported");
 	}
 	if (ih.height < 0)
-		ih.height = -1 * ih.height;
-	else
+	{
+		ih.height *= -1;
 		_yFlipped = true;
+	}
 }
 
 void	Texture::parseBMPColorHeader(const std::filesystem::path &fp,
@@ -185,6 +186,30 @@ void	Texture::parseBMPData(const std::filesystem::path &fp, std::ifstream &bmp,
 		printData(ih, nbPaddingBytes, dataBytes);
 }
 
+void	Texture::flipData(const size_t linelen, const int linenb)
+{
+	unsigned char	*line = (unsigned char*)calloc(linelen, sizeof(unsigned char));
+	if (!line)
+	{
+		std::cout << "MEMORY ALLOCATION FAILED" << std::endl;
+		throw std::bad_alloc();
+	}
+	int	y1 = 0;
+	int	y2 = linenb - 1;
+	while (y1 < linenb / 2)
+	{
+		// copy line[y1] into line
+		memcpy(line, _data + (y1 * linelen), linelen);
+		// copy line[y2] into line[y1]
+		memcpy(_data + (y1 * linelen), _data + (y2 * linelen), linelen);
+		// copy line into line[y2]
+		memcpy(_data + (y2 * linelen), line, linelen);
+		y1++;
+		y2--;
+	}
+	free(line);
+}
+
 void	Texture::parseBMPFile(const std::filesystem::path &filePath)
 {
 	if (!doesFileExist(filePath.string()))
@@ -208,9 +233,7 @@ void	Texture::parseBMPFile(const std::filesystem::path &filePath)
 //	_debug = false; // debug
 
 	if (_yFlipped)
-	{
-		// Flip data upside down here!
-	}
+		flipData(infoHeader.width * 4, infoHeader.height);
 
 	_width = infoHeader.width;
 	_height = infoHeader.height;
@@ -314,6 +337,23 @@ void	Texture::printData(const t_InfoHeader &ih, const size_t padByt,
 	std::cout << ih.height << " lines of " << ih.width * 4 << " bytes = "
 		<< datByt << " bytes" << std::endl;
 	std::cout << padByt << " bytes of padding" << std::endl;
+	size_t	i = 0;
+	std::cout << "data =\n" << std::hex;
+	for (int y = 0; y < ih.height; y++)
+	{
+		std::cout << "\t";
+		for (int x = 0; x < 4 * ih.width; x++)
+		{
+			i = (y * 4 * ih.width) + x;
+			std::cout << std::setfill('0') << std::setw(2) << +_data[i] << " ";
+		}
+		std::cout << "\n";
+	}
+	std::cout << std::dec << std::endl;
+}
+
+void	Texture::printData(const t_InfoHeader &ih) const
+{
 	size_t	i = 0;
 	std::cout << "data =\n" << std::hex;
 	for (int y = 0; y < ih.height; y++)
